@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -34,12 +34,13 @@
 #ifdef HAVE_ICU_CONVERTER
 
 #include <memory>
+#include <string_view>
 
 #ifdef HAVE_ICU
 struct UConverter;
 #endif
 
-template<typename T> class AllocatedString;
+class AllocatedString;
 
 /**
  * This class can convert strings with a certain character set to and
@@ -84,7 +85,7 @@ public:
 	 * Throws std::runtime_error on error.
 	 */
 	gcc_nonnull_all
-	AllocatedString<char> ToUTF8(std::string_view s) const;
+	AllocatedString ToUTF8(std::string_view s) const;
 
 	/**
 	 * Convert the string from UTF-8.
@@ -92,7 +93,7 @@ public:
 	 * Throws std::runtime_error on error.
 	 */
 	gcc_nonnull_all
-	AllocatedString<char> FromUTF8(std::string_view s) const;
+	AllocatedString FromUTF8(std::string_view s) const;
 };
 
 #endif

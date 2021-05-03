@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,10 +31,12 @@ extern "C" {
 #include <cassert>
 #include <cstdint>
 
-/* suppress the ffmpeg compatibility macro */
-#ifdef SampleFormat
-#undef SampleFormat
+/* redefine AV_TIME_BASE_Q because libavutil's macro definition is a
+   compound literal, which is illegal in C++ */
+#ifdef AV_TIME_BASE_Q
+#undef AV_TIME_BASE_Q
 #endif
+static constexpr AVRational AV_TIME_BASE_Q{1, AV_TIME_BASE};
 
 /**
  * Convert a FFmpeg time stamp to a floating point value (in seconds).
@@ -45,7 +47,7 @@ FfmpegTimeToDouble(int64_t t, const AVRational time_base) noexcept
 {
 	assert(t != (int64_t)AV_NOPTS_VALUE);
 
-	return FloatDuration(av_rescale_q(t, time_base, (AVRational){1, 1024}))
+	return FloatDuration(av_rescale_q(t, time_base, {1, 1024}))
 		/ 1024;
 }
 
@@ -69,7 +71,7 @@ FromFfmpegTime(int64_t t, const AVRational time_base) noexcept
 	assert(t != (int64_t)AV_NOPTS_VALUE);
 
 	return SongTime::FromMS(av_rescale_q(t, time_base,
-					     (AVRational){1, 1000}));
+					     {1, 1000}));
 }
 
 /**

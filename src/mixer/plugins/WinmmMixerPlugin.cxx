@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,6 +18,7 @@
  */
 
 #include "mixer/MixerInternal.hxx"
+#include "output/Features.h"
 #include "output/OutputAPI.hxx"
 #include "output/plugins/WinmmOutputPlugin.hxx"
 #include "util/Math.hxx"

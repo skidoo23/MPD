@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2019 Max Kellermann <max.kellermann@gmail.com>
+ * Copyright 2011-2021 Max Kellermann <max.kellermann@gmail.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
 #include "ToString.hxx"
 #include "Features.hxx"
 #include "SocketAddress.hxx"
@@ -35,6 +34,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cstring>
 
 #ifdef _WIN32
 #include <ws2tcpip.h>
@@ -48,8 +48,6 @@
 #ifdef HAVE_UN
 #include <sys/un.h>
 #endif
-
-#include <string.h>
 
 #ifdef HAVE_UN
 
@@ -86,7 +84,7 @@ ToString(SocketAddress address) noexcept
 #ifdef HAVE_UN
 	if (address.GetFamily() == AF_LOCAL)
 		/* return path of local socket */
-		return LocalAddressToString(*(const sockaddr_un *)address.GetAddress(),
+		return LocalAddressToString(address.CastTo<struct sockaddr_un>(),
 					    address.GetSize());
 #endif
 
@@ -104,7 +102,7 @@ ToString(SocketAddress address) noexcept
 		return "unknown";
 
 #ifdef HAVE_IPV6
-	if (strchr(host, ':') != nullptr) {
+	if (std::strchr(host, ':') != nullptr) {
 		std::string result("[");
 		result.append(host);
 		result.append("]:");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -55,7 +55,7 @@ void
 UpdateWalk::UpdateArchiveTree(ArchiveFile &archive, Directory &directory,
 			      const char *name) noexcept
 {
-	const char *tmp = strchr(name, '/');
+	const char *tmp = std::strchr(name, '/');
 	if (tmp) {
 		const std::string_view child_name(name, tmp - name);
 		//add dir is not there already
@@ -82,8 +82,8 @@ UpdateWalk::UpdateArchiveTree(ArchiveFile &archive, Directory &directory,
 				}
 
 				modified = true;
-				FormatDefault(update_domain, "added %s/%s",
-					      directory.GetPath(), name);
+				FormatNotice(update_domain, "added %s/%s",
+					     directory.GetPath(), name);
 			}
 		} else {
 			if (!song->UpdateFileInArchive(archive)) {
@@ -157,7 +157,7 @@ UpdateWalk::UpdateArchiveFile(Directory &parent, std::string_view name,
 
 bool
 UpdateWalk::UpdateArchiveFile(Directory &directory,
-			      std::string_view name, const char *suffix,
+			      std::string_view name, std::string_view suffix,
 			      const StorageFileInfo &info) noexcept
 {
 	const ArchivePlugin *plugin = archive_plugin_from_suffix(suffix);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -22,7 +22,7 @@
 #include "mixer/Listener.hxx"
 #include "output/OutputAPI.hxx"
 #include "event/MultiSocketMonitor.hxx"
-#include "event/DeferEvent.hxx"
+#include "event/InjectEvent.hxx"
 #include "event/Call.hxx"
 #include "util/ASCII.hxx"
 #include "util/Domain.hxx"
@@ -41,7 +41,7 @@ extern "C" {
 static constexpr unsigned VOLUME_MIXER_ALSA_INDEX_DEFAULT = 0;
 
 class AlsaMixerMonitor final : MultiSocketMonitor {
-	DeferEvent defer_invalidate_sockets;
+	InjectEvent defer_invalidate_sockets;
 
 	snd_mixer_t *mixer;
 
@@ -64,7 +64,7 @@ public:
 	}
 
 private:
-	std::chrono::steady_clock::duration PrepareSockets() noexcept override;
+	Event::Duration PrepareSockets() noexcept override;
 	void DispatchSockets() noexcept override;
 };
 
@@ -99,12 +99,12 @@ public:
 
 static constexpr Domain alsa_mixer_domain("alsa_mixer");
 
-std::chrono::steady_clock::duration
+Event::Duration
 AlsaMixerMonitor::PrepareSockets() noexcept
 {
 	if (mixer == nullptr) {
 		ClearSocketList();
-		return std::chrono::steady_clock::duration(-1);
+		return Event::Duration(-1);
 	}
 
 	return non_block.PrepareSockets(*this, mixer);

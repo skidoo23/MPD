@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
 #include "VorbisDecoderPlugin.h"
 #include "OggDecoder.hxx"
 #include "lib/xiph/VorbisComments.hxx"
@@ -25,6 +24,7 @@
 #include "lib/xiph/OggFind.hxx"
 #include "VorbisDomain.hxx"
 #include "../DecoderAPI.hxx"
+#include "decoder/Features.h"
 #include "input/InputStream.hxx"
 #include "input/Reader.hxx"
 #include "OggCodec.hxx"
@@ -370,7 +370,7 @@ VisitVorbisDuration(InputStream &is,
 }
 
 static bool
-vorbis_scan_stream(InputStream &is, TagHandler &handler) noexcept
+vorbis_scan_stream(InputStream &is, TagHandler &handler)
 {
 	/* initialize libogg */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,9 +47,7 @@ struct SndfileInputStream {
 	size_t Read(void *buffer, size_t size) {
 		/* libsndfile chokes on partial reads; therefore
 		   always force full reads */
-		return decoder_read_full(client, is, buffer, size)
-			? size
-			: 0;
+		return decoder_read_much(client, is, buffer, size);
 	}
 };
 
@@ -268,7 +266,7 @@ static constexpr struct {
 };
 
 static bool
-sndfile_scan_stream(InputStream &is, TagHandler &handler) noexcept
+sndfile_scan_stream(InputStream &is, TagHandler &handler)
 {
 	SF_INFO info;
 

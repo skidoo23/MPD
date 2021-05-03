@@ -1,11 +1,18 @@
 project(
   'mpd',
   ['c', 'cpp'],
-  version: '0.22~git',
+  version: '0.23~git',
   meson_version: '>= 0.49.0',
   default_options: [
-    'c_std=c99',
-    'cpp_std=c++17'
+    'c_std=c11',
+    'build.c_std=c11',
+    'cpp_std=c++17',
+    'build.cpp_std=c++17',
+    'warning_level=3',
+
+    # This is only here to build subprojects as static libraries; MPD
+    # itself doesn't ship any libraries.
+    'default_library=static',
   ],
   license: 'GPLv2+',
 )
@@ -15,18 +22,20 @@ version_cxx = vcs_tag(input: 'src/GitVersion.cxx', output: 'GitVersion.cxx')
 compiler = meson.get_compiler('cpp')
 c_compiler = meson.get_compiler('c')
 
-if compiler.get_id() == 'gcc' and compiler.version().version_compare('<7')
-  warning('Your GCC version is too old.  You need at least version 7.')
-elif compiler.get_id() == 'clang' and compiler.version().version_compare('<4')
-  warning('Your clang version is too old.  You need at least version 4.')
+if compiler.get_id() == 'gcc' and compiler.version().version_compare('<8')
+  warning('Your GCC version is too old.  You need at least version 8.')
+elif compiler.get_id() == 'clang' and compiler.version().version_compare('<5')
+  warning('Your clang version is too old.  You need at least version 5.')
 endif
 
+version_conf = configuration_data()
+version_conf.set_quoted('PACKAGE', meson.project_name())
+version_conf.set_quoted('PACKAGE_NAME', meson.project_name())
+version_conf.set_quoted('VERSION', meson.project_version())
+version_conf.set_quoted('PROTOCOL_VERSION', '0.23.0')
+configure_file(output: 'Version.h', configuration: version_conf)
+
 conf = configuration_data()
-conf.set_quoted('PACKAGE', meson.project_name())
-conf.set_quoted('PACKAGE_NAME', meson.project_name())
-conf.set_quoted('PACKAGE_VERSION', meson.project_version())
-conf.set_quoted('VERSION', meson.project_version())
-conf.set_quoted('PROTOCOL_VERSION', '0.22.0')
 conf.set_quoted('SYSTEM_CONFIG_FILE_LOCATION', join_paths(get_option('prefix'), get_option('sysconfdir'), 'mpd.conf'))
 
 common_cppflags = [
@@ -40,10 +49,8 @@ common_cxxflags = [
 ]
 
 test_common_flags = [
-  '-Wall',
-  '-Wextra',
-
   '-Wvla',
+  '-Wdouble-promotion',
 
   '-fvisibility=hidden',
 
@@ -70,11 +77,6 @@ test_cxxflags = test_common_flags + [
   '-Wused-but-marked-unused',
 
   '-Wno-non-virtual-dtor',
-
-  # work around bogus GCC7 warning "mangled name for ... will change
-  # in C++17 because the exception specification is part of a function
-  # type"
-  '-Wno-noexcept-type',
 ]
 
 if compiler.get_id() == 'clang'
@@ -94,6 +96,11 @@ test_cflags = test_common_flags + [
 ]
 
 test_ldflags = [
+  # make relocations read-only (hardening)
+  '-Wl,-z,relro',
+
+  # no lazy binding, please - not worth it for a daemon
+  '-Wl,-z,now',
 ]
 
 if get_option('buildtype') != 'debug'
@@ -108,6 +115,13 @@ if get_option('buildtype') != 'debug'
   test_ldflags += [
     '-Wl,--gc-sections',
   ]
+endif
+
+if get_option('fuzzer')
+  fuzzer_flags = ['-fsanitize=fuzzer,address,undefined']
+  add_global_arguments(fuzzer_flags, language: 'cpp')
+  add_global_arguments(fuzzer_flags, language: 'c')
+  add_global_link_arguments(fuzzer_flags, language: 'cpp')
 endif
 
 add_global_arguments(common_cxxflags + compiler.get_supported_arguments(test_cxxflags), language: 'cpp')
@@ -145,27 +159,20 @@ add_global_arguments(common_cppflags, language: 'cpp')
 enable_daemon = not is_windows and not is_android and get_option('daemon')
 conf.set('ENABLE_DAEMON', enable_daemon)
 
-conf.set('HAVE_CLOCALE', compiler.has_header('clocale'))
-
 conf.set('HAVE_GETPWNAM_R', compiler.has_function('getpwnam_r'))
 conf.set('HAVE_GETPWUID_R', compiler.has_function('getpwuid_r'))
 conf.set('HAVE_INITGROUPS', compiler.has_function('initgroups'))
 conf.set('HAVE_FNMATCH', compiler.has_function('fnmatch'))
-conf.set('HAVE_STRNDUP', compiler.has_function('strndup', prefix: '#define _GNU_SOURCE\n#include <string.h>'))
+
+# Explicitly exclude Windows in this check because
+# https://github.com/mesonbuild/meson/issues/3672 (reported in 2018,
+# still not fixed in 2020) causes Meson to believe it exists, because
+# __builtin_strndup() exists (but strndup() still cannot be used).
+conf.set('HAVE_STRNDUP', not is_windows and compiler.has_function('strndup', prefix: '#define _GNU_SOURCE\n#include <string.h>'))
+
 conf.set('HAVE_STRCASESTR', compiler.has_function('strcasestr'))
 
 conf.set('HAVE_PRCTL', is_linux)
-
-conf.set('USE_EVENTFD', is_linux and get_option('eventfd'))
-conf.set('USE_SIGNALFD', is_linux and get_option('signalfd'))
-
-if is_windows
-  conf.set('USE_WINSELECT', true)
-elif is_linux and get_option('epoll')
-  conf.set('USE_EPOLL', true)
-else
-  conf.set('USE_POLL', true)
-endif
 
 if not get_option('syslog').disabled()
   if compiler.has_function('syslog')
@@ -211,7 +218,6 @@ log_dep = declare_dependency(
 sources = [
   version_cxx,
   'src/Main.cxx',
-  'src/protocol/Ack.cxx',
   'src/protocol/ArgParser.cxx',
   'src/protocol/Result.cxx',
   'src/command/CommandError.cxx',
@@ -255,7 +261,6 @@ sources = [
   'src/LogInit.cxx',
   'src/ls.cxx',
   'src/Instance.cxx',
-  'src/win32/Win32Main.cxx',
   'src/MusicBuffer.cxx',
   'src/MusicPipe.cxx',
   'src/MusicChunk.cxx',
@@ -303,6 +308,12 @@ sources = [
   'src/PlaylistFile.cxx',
 ]
 
+if is_windows
+  sources += [
+    'src/win32/Win32Main.cxx',
+  ]
+endif
+
 if not is_android
   sources += [
     'src/CommandLine.cxx',
@@ -331,10 +342,15 @@ endif
 
 subdir('src/util')
 subdir('src/time')
+subdir('src/io')
+subdir('src/io/uring')
 subdir('src/system')
 subdir('src/thread')
 subdir('src/net')
 subdir('src/event')
+subdir('src/win32')
+
+subdir('src/apple')
 
 subdir('src/lib/dbus')
 subdir('src/lib/icu')
@@ -350,6 +366,7 @@ subdir('src/lib/gcrypt')
 subdir('src/lib/nfs')
 subdir('src/lib/oss')
 subdir('src/lib/pcre')
+subdir('src/lib/pipewire')
 subdir('src/lib/pulse')
 subdir('src/lib/sndio')
 subdir('src/lib/sqlite')
@@ -358,6 +375,8 @@ subdir('src/lib/upnp')
 subdir('src/lib/yajl')
 
 subdir('src/lib/crypto')
+
+subdir('src/zeroconf')
 
 subdir('src/fs')
 subdir('src/config')
@@ -374,7 +393,6 @@ subdir('src/decoder')
 subdir('src/encoder')
 subdir('src/song')
 subdir('src/playlist')
-subdir('src/zeroconf')
 
 if curl_dep.found()
   sources += 'src/RemoteTagCache.cxx'
@@ -492,6 +510,7 @@ mpd = build_target(
     chromaprint_dep,
   ],
   link_args: link_args,
+  build_by_default: not get_option('fuzzer'),
   install: not is_android and not is_haiku,
 )
 
@@ -527,10 +546,12 @@ install_data(
   install_dir: join_paths(get_option('datadir'), 'doc', meson.project_name()),
 )
 
-if get_option('documentation')
-  subdir('doc')
-endif
+subdir('doc')
 
 if get_option('test')
   subdir('test')
+endif
+
+if get_option('fuzzer')
+  subdir('test/fuzzer')
 endif

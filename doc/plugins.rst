@@ -27,7 +27,7 @@ The default plugin. Stores a copy of the database in memory. A file is used for 
 proxy
 -----
 
-Provides access to the database of another :program:`MPD` instance using libmpdclient. This is useful when you run mount the music directory via NFS/SMB, and the file server already runs a :program:`MPD` instance. Only the file server needs to update the database.
+Provides access to the database of another :program:`MPD` instance using libmpdclient. This is useful when you mount the music directory via NFS/SMB, and the file server already runs a :program:`MPD` instance. Only the file server needs to update the database.
 
 .. list-table::
    :widths: 20 80                     
@@ -60,25 +60,30 @@ The default plugin which gives :program:`MPD` access to local files. It is used 
 curl
 ----
 
-A WebDAV client using libcurl. It is used when :code:`music_directory` contains a http:// or https:// URI, for example :samp:`https://the.server/dav/`.
+A WebDAV client using libcurl. It is used when :code:`music_directory`
+contains a ``http://`` or ``https://`` URI, for example
+:samp:`https://the.server/dav/`.
 
 smbclient
 ---------
 
-Load music files from a SMB/CIFS server. It is used when :code:`music_directory` contains a smb:// URI, for example :samp:`smb://myfileserver/Music`.
+Load music files from a SMB/CIFS server. It is used when
+:code:`music_directory` contains a ``smb://`` URI, for example
+:samp:`smb://myfileserver/Music`.
+
+Note that :file:`libsmbclient` has a serious bug which causes MPD to
+crash, and therefore this plugin is disabled by default and should not
+be used until the bug is fixed:
+https://bugzilla.samba.org/show_bug.cgi?id=11413
 
 nfs
 ---
 
-Load music files from a NFS server. It is used when :code:`music_directory` contains a nfs:// URI according to RFC2224, for example :samp:`nfs://servername/path`.
+Load music files from a NFS server.  It is used when
+:code:`music_directory` contains a ``nfs://`` URI according to
+RFC2224, for example :samp:`nfs://servername/path`.
 
-This plugin uses libnfs, which supports only NFS version 3. Since :program:`MPD` is not allowed to bind to "privileged ports", the NFS server needs to enable the "insecure" setting; example :file:`/etc/exports`:
-
-.. code-block:: none
-
-    /srv/mp3 192.168.1.55(ro,insecure)
-
-Don't fear: "insecure" does not mean that your NFS server is insecure. A few decades ago, people thought the concept of "privileged ports" would make network services "secure", which was a fallacy. The absence of this obsolete "security" measure means little.
+See :ref:`input_nfs` for more information.
 
 udisks
 ------
@@ -116,7 +121,7 @@ Provides a list of SMB/CIFS servers on the local network.
 udisks
 ------
 
-Queries the udisks2 daemon via D-Bus and obtain a list of file systems (e.g. USB sticks or other removable media).
+Queries the udisks2 daemon via D-Bus and obtains a list of file systems (e.g. USB sticks or other removable media).
 
 upnp
 ----
@@ -152,7 +157,7 @@ Allows :program:`MPD` on Linux to play audio directly from a soundcard using the
    * - Setting
      - Description
    * - **default_device NAME**
-     - The alsa device id to use to none is specified in the uri.
+     - The alsa device id to use when none is specified in the URI.
    * - **default_format F**
      - The sampling rate, size and channels to use. Wildcards are not allowed.
 
@@ -186,7 +191,10 @@ curl
 
 Opens remote files or streams over HTTP using libcurl.
 
-Note that unless overridden by the below settings (e.g. by setting them to a blank value), general curl configuration from environment variables such as http_proxy or specified in :file:`~/.curlrc` will be in effect.
+Note that unless overridden by the below settings (e.g. by setting
+them to a blank value), general curl configuration from environment
+variables such as ``http_proxy`` or specified in :file:`~/.curlrc`
+will be in effect.
 
 .. list-table::
    :widths: 20 80
@@ -202,11 +210,15 @@ Note that unless overridden by the below settings (e.g. by setting them to a bla
      - Verify the peer's SSL certificate? `More information <http://curl.haxx.se/libcurl/c/CURLOPT_SSL_VERIFYPEER.html>`_.
    * - **verify_host yes|no**
      - Verify the certificate's name against host? `More information <http://curl.haxx.se/libcurl/c/CURLOPT_SSL_VERIFYHOST.html>`_.
+   * - **cacert**
+     - Set path to Certificate Authority (CA) bundle `More information <https://curl.se/libcurl/c/CURLOPT_CAINFO.html>`_.
 
 ffmpeg
 ------
 
-Access to various network protocols implemented by the FFmpeg library: gopher://, rtp://, rtsp://, rtmp://, rtmpt://, rtmps://
+Access to various network protocols implemented by the FFmpeg library:
+``gopher://``, ``rtp://``, ``rtsp://``, ``rtmp://``, ``rtmpt://``,
+``rtmps://``
 
 file
 ----
@@ -218,30 +230,51 @@ mms
 
 Plays streams with the MMS protocol using `libmms <https://launchpad.net/libmms>`_.
 
+.. _input_nfs:
+
 nfs
 ---
 
-Allows :program:`MPD` to access files on NFSv3 servers without actually mounting them (i.e. in userspace, without help from the kernel's VFS layer). All URIs with the nfs:// scheme are used according to RFC2224. Example:
+Allows :program:`MPD` to access files on NFS servers without actually
+mounting them (i.e. with :program:`libnfs` in userspace, without help
+from the kernel's VFS layer). All URIs with the ``nfs://`` scheme are
+used according to RFC2224. Example:
 
 .. code-block:: none
 
      mpc add nfs://servername/path/filename.ogg
 
-Note that this usually requires enabling the "insecure" flag in the server's /etc/exports file, because :program:`MPD` cannot bind to so-called "privileged" ports. Don't fear: this will not make your file server insecure; the flag was named in a time long ago when privileged ports were thought to be meaningful for security. By today's standards, NFSv3 is not secure at all, and if you believe it is, you're already doomed.
+This plugin uses :program:`libnfs`, which supports only NFS version 3.
+Since :program:`MPD` is not allowed to bind to so-called "privileged
+ports", the NFS server needs to enable the ``insecure`` setting;
+example :file:`/etc/exports`:
+
+.. code-block:: none
+
+    /srv/mp3 192.168.1.55(ro,insecure)
+
+Don't fear: this will not make your file server insecure; the flag was
+named a time long ago when privileged ports were thought to be
+meaningful for security. By today's standards, NFSv3 is not secure at
+all, and if you believe it is, you're already doomed.
 
 smbclient
 ---------
 
-Allows :program:`MPD` to access files on SMB/CIFS servers (e.g. Samba or Microsoft Windows). All URIs with the smb:// scheme are used. Example:
+Allows :program:`MPD` to access files on SMB/CIFS servers (e.g. Samba
+or Microsoft Windows). All URIs with the ``smb://`` scheme are
+used.  Example:
 
 .. code-block:: none
 
     mpc add smb://servername/sharename/filename.ogg
+    mpc add smb://username:password@servername/sharename/filename.ogg
 
 qobuz
 -----
 
-Play songs from the commercial streaming service Qobuz. It plays URLs in the form qobuz://track/ID, e.g.:
+Play songs from the commercial streaming service Qobuz. It plays URLs
+in the form ``qobuz://track/ID``, e.g.:
 
 .. code-block:: none
 
@@ -267,7 +300,9 @@ Play songs from the commercial streaming service Qobuz. It plays URLs in the for
 tidal
 -----
 
-Play songs from the commercial streaming service `Tidal <http://tidal.com/>`_. It plays URLs in the form tidal://track/ID, e.g.:
+Play songs from the commercial streaming service `Tidal
+<http://tidal.com/>`_. It plays URLs in the form ``tidal://track/ID``,
+e.g.:
 
 .. warning::
 
@@ -322,6 +357,8 @@ faad
 
 Decodes AAC files using libfaad.
 
+.. _decoder_ffmpeg:
+
 ffmpeg
 ------
 
@@ -343,10 +380,14 @@ flac
 
 Decodes FLAC files using libFLAC.
 
+.. _decoder_dsdiff:
+
 dsdiff
 ------
 
-Decodes DFF files containing DSDIFF data (e.g. SACD rips).
+Decodes DSDIFF (`Direct Stream Digital Interchange File Format
+<http://www.sonicstudio.com/pdf/dsd/DSDIFF_1.5_Spec.pdf>`_) files
+(:file:`*.dff`).  These contain :ref:`DSD <dsd>` instead of PCM.
 
 .. list-table::
    :widths: 20 80
@@ -357,10 +398,14 @@ Decodes DFF files containing DSDIFF data (e.g. SACD rips).
    * - **lsbitfirst yes|no**
      - Decode the least significant bit first. Default is no.
 
+.. _decoder_dsf:
+
 dsf
 ---
 
-Decodes DSF files containing DSDIFF data (e.g. SACD rips).
+Decodes DSF
+(<https://dsd-guide.com/sites/default/files/white-papers/DSFFileFormatSpec_E.pdf>)
+files (:file:`*.dsf`).  These contain :ref:`DSD <dsd>` instead of PCM.
 
 fluidsynth
 ----------
@@ -399,11 +444,10 @@ hybrid_dsd
 
 `Hybrid-DSD
 <http://dsdmaster.blogspot.de/p/bitperfect-introduces-hybrid-dsd-file.html>`_
-is a MP4 container file (:file:`*.m4a`) which contains both ALAC and
+is an MP4 container file (:file:`*.m4a`) which contains both ALAC and
 DSD data. It is disabled by default, and works only if you explicitly
 enable it. Without this plugin, the ALAC parts gets handled by the
-`FFmpeg decoder plugin
-<https://www.musicpd.org/doc/user/decoder_plugins.html#ffmpeg_decoder>`_. This
+:ref:`FFmpeg decoder plugin <decoder_ffmpeg>`. This
 plugin should be enabled only if you have a bit-perfect playback path
 to a DSD-capable DAC; for everybody else, playing back the ALAC copy
 of the file is better.
@@ -451,7 +495,9 @@ Decodes Musepack files using `libmpcdec <http://www.musepack.net/>`_.
 mpg123
 ------
 
-Decodes MP3 files using `libmpg123 <http://www.mpg123.de/>`_.
+Decodes MP3 files using `libmpg123 <http://www.mpg123.de/>`_. Currently, this
+decoder does not support streams (e.g. archived files, remote files over HTTP,
+...), only regular local files.
 
 opus
 ----
@@ -461,7 +507,7 @@ Decodes Opus files using `libopus <http://www.opus-codec.org/>`_.
 pcm
 ---
 
-Read raw PCM samples. It understands the "audio/L16" MIME type with parameters "rate" and "channels" according to RFC 2586. It also understands the MPD-specific MIME type "audio/x-mpd-float".
+Reads raw PCM samples. It understands the "audio/L16" MIME type with parameters "rate" and "channels" according to RFC 2586. It also understands the MPD-specific MIME type "audio/x-mpd-float".
 
 sidplay
 -------
@@ -475,7 +521,7 @@ C64 SID decoder based on `libsidplayfp <https://sourceforge.net/projects/sidplay
    * - Setting
      - Description
    * - **songlength_database PATH**
-     - Location of your songlengths file, as distributed with the HVSC. The sidplay plugin checks this for matching MD5 fingerprints. See http://www.hvsc.c64.org/download/C64Music/DOCUMENTS/Songlengths.faq.
+     - Location of your songlengths file, as distributed with the HVSC. The sidplay plugin checks this for matching MD5 fingerprints. See http://www.hvsc.c64.org/download/C64Music/DOCUMENTS/Songlengths.faq. New songlength format support requires libsidplayfp 2.0 or later.
    * - **default_songlength SECONDS**
      - This is the default playing time in seconds for songs not in the songlength database, or in case you're not using a database. A value of 0 means play indefinitely.
    * - **default_genre GENRE**
@@ -599,11 +645,15 @@ Encodes into `Ogg Opus <http://www.opus-codec.org/>`_.
    * - Setting
      - Description
    * - **bitrate**
-     - Sets the data rate in bit per second. The special value "auto" lets libopus choose a rate (which is the default), and "max" uses the maximum possible data rate.
+     - Sets the data rate in bits per second. The special value "auto" lets libopus choose a rate (which is the default), and "max" uses the maximum possible data rate.
    * - **complexity**
      - Sets the `Opus complexity <https://wiki.xiph.org/OpusFAQ#What_is_the_complexity_of_Opus.3F>`_.
    * - **signal**
      - Sets the Opus signal type. Valid values are "auto" (the default), "voice" and "music".
+   * - **vbr yes|no|constrained**
+     - Sets the vbr mode. Setting to "yes" (default) enables variable bitrate, "no" forces constant bitrate and frame sizes, "constrained" uses constant bitrate analogous to CBR in AAC and MP3.
+   * - **packet_loss**
+     - Sets the expected packet loss percentage. This value can be increased from the default "0" for a more redundant stream at the expense of quality.
    * - **opustags yes|no**
      - Configures how metadata is interleaved into the stream. If set to yes, then metadata is inserted using ogg stream chaining, as specified in :rfc:`7845`. If set to no (the default), then ogg stream chaining is avoided and other output-dependent method is used, if available.
 
@@ -715,6 +765,29 @@ Valid quality values for libsoxr:
 * "medium"
 * "low"
 * "quick"
+* "custom"
+
+If the quality is set to custom also the following settings are available:
+
+.. list-table::
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Name
+     - Description
+   * - **precision**
+     - The precision in bits. Valid values 16,20,24,28 and 32  bits.
+   * - **phase_response**
+     - Between the 0-100, Where 0=MINIMUM_PHASE and 50=LINEAR_PHASE.
+   * - **passband_end**
+     - The % of source bandwidth where to start filtering. Typical between the 90-99.7.
+   * - **stopband_begin**
+     - The % of the source bandwidth Where the anti aliasing filter start. Value 100+.
+   * - **attenuation**
+     - Reduction in dB's to prevent clipping from the resampling process.
+   * - **flags**
+     - Bitmask with additional option see soxr documentation for specific flags.
+
 
 .. _output_plugins:
 
@@ -981,6 +1054,21 @@ The pipe plugin starts a program and writes raw PCM data into its standard input
    * - **command CMD**
      - This command is invoked with the shell.
 
+pipewire
+--------
+
+Connect to a `PipeWire <https://pipewire.org/>``_ server.  Requires
+``libpipewire``.
+
+.. list-table::
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Setting
+     - Description
+   * - **target ID**
+     - Link to the given target id.
+
 .. _pulse_plugin:
 
 pulse
@@ -1069,7 +1157,34 @@ sles
 
 Plugin using the `OpenSL ES <https://www.khronos.org/opensles/>`__
 audio API.  Its primary use is local playback on Android, where
-:ref:`ALSA <alsa_plugin>` is not available.
+:ref:`ALSA <alsa_plugin>` is not available.  It supports 16 bit and
+floating point samples.
+
+
+snapcast
+--------
+
+Snapcast is a multiroom client-server audio player.  This plugin
+allows MPD to act as a `Snapcast
+<https://github.com/badaix/snapcast>`__ server.  Snapcast clients
+connect to it and receive audio data from MPD.
+
+.. list-table::
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Setting
+     - Description
+   * - **port P**
+     - Binds the Snapcast server to the specified port.  The default
+       port is :samp:`1704`.
+   * - **bind_to_address ADDR**
+     - Binds the Snapcast server to the specified address.  Multiple
+       addresses in parallel are not supported.  The default is to
+       bind on all addresses on port :samp:`1704`.
+   * - **zeroconf yes|no**
+     - Publish the Snapcast server as service type ``_snapcast._tcp``
+       via Zeroconf (Avahi or Bonjour).  Default is :samp:`yes`.
 
 
 solaris
@@ -1084,6 +1199,27 @@ The "Solaris" plugin runs only on SUN Solaris, and plays via /dev/audio.
      - Description
    * - **device PATH**
      - Sets the path of the audio device, defaults to /dev/audio.
+
+
+wasapi
+------
+
+The `Windows Audio Session API <https://docs.microsoft.com/en-us/windows/win32/coreaudio/wasapi>`_ plugin uses WASAPI, which is supported started from Windows Vista. It is recommended if you are using Windows.
+
+.. list-table::
+   :widths: 20 80
+   :header-rows: 1
+
+   * - Setting
+     - Description
+   * - **device NAME**
+     - Sets the device which should be used. This can be any valid audio device name, or index number. The default value is "", which makes WASAPI choose the default output device.
+   * - **enumerate yes|no**
+     - Enumerate all devices in log while playing started. Useful for device configuration. The default value is "no".
+   * - **exclusive yes|no**
+     - Exclusive mode blocks all other audio source, and get best audio quality without resampling. Stopping playing release the exclusive control of the output device. The default value is "no".
+   * - **dop yes|no**
+     - Enable DSD over PCM. Require exclusive mode. The default value is "no".
 
 
 .. _filter_plugins:
@@ -1154,23 +1290,25 @@ Playlist plugins
 asx
 ---
 
-Reads .asx playlist files.
+Reads :file:`.asx` playlist files.
+
+.. _cue_playlist:
 
 cue
 ---
-Reads .cue files.
+Reads :file:`.cue` files.
 
 embcue
 ------
-Reads CUE sheets from the "CUESHEET" tag of song files.
+Reads CUE sheets from the ``CUESHEET`` tag of song files.
 
 m3u
 ---
-Reads .m3u playlist files.
+Reads :file:`.m3u` playlist files.
 
 extm3u
 ------
-Reads extended .m3u playlist files.
+Reads extended :file:`.m3u` playlist files.
 
 flac
 ----
@@ -1178,11 +1316,11 @@ Reads the cuesheet metablock from a FLAC file.
 
 pls
 ---
-Reads .pls playlist files.
+Reads :file:`.pls` playlist files.
 
 rss
 ---
-Reads music links from .rss files.
+Reads music links from :file:`.rss` files.
 
 soundcloud
 ----------
@@ -1201,3 +1339,19 @@ Download playlist from SoundCloud. It accepts URIs starting with soundcloud://.
 xspf
 ----
 Reads XSPF playlist files. 
+
+
+Archive plugins
+===============
+
+bz2
+---
+Allows to load single bzip2 compressed files using `libbz2 <https://www.sourceware.org/bzip2/>`_. Does not support seeking.
+
+zzip
+----
+Allows to load music files from ZIP archives using `zziplib <http://zziplib.sourceforge.net/>`_.
+
+iso
+---
+Allows to load music files from ISO 9660 images using `libcdio <https://www.gnu.org/software/libcdio/>`_.

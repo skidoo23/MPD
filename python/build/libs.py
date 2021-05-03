@@ -4,13 +4,15 @@ from os.path import abspath
 from build.project import Project
 from build.zlib import ZlibProject
 from build.meson import MesonProject
+from build.cmake import CmakeProject
 from build.autotools import AutotoolsProject
 from build.ffmpeg import FfmpegProject
+from build.openssl import OpenSSLProject
 from build.boost import BoostProject
 
 libmpdclient = MesonProject(
-    'https://www.musicpd.org/download/libmpdclient/2/libmpdclient-2.18.tar.xz',
-    '4cb01e1f567e0169aca94875fb6e1200e7f5ce35b63a4df768ec1591fb1081fa',
+    'https://www.musicpd.org/download/libmpdclient/2/libmpdclient-2.19.tar.xz',
+    '158aad4c2278ab08e76a3f2b0166c99b39fae00ee17231bd225c5a36e977a189',
     'lib/libmpdclient.a',
 )
 
@@ -24,8 +26,8 @@ libogg = AutotoolsProject(
 )
 
 libvorbis = AutotoolsProject(
-    'http://downloads.xiph.org/releases/vorbis/libvorbis-1.3.6.tar.xz',
-    'af00bb5a784e7c9e69f56823de4637c350643deedaf333d0fa86ecdba6fcb415',
+    'http://downloads.xiph.org/releases/vorbis/libvorbis-1.3.7.tar.xz',
+    'b33cc4934322bcbf6efcbacf49e3ca01aadbea4114ec9589d1b1e9d20f72954b',
     'lib/libvorbis.a',
     [
         '--disable-shared', '--enable-static',
@@ -111,9 +113,44 @@ liblame = AutotoolsProject(
     ],
 )
 
+libmodplug = AutotoolsProject(
+    'https://downloads.sourceforge.net/modplug-xmms/libmodplug/0.8.9.0/libmodplug-0.8.9.0.tar.gz',
+    '457ca5a6c179656d66c01505c0d95fafaead4329b9dbaa0f997d00a3508ad9de',
+    'lib/libmodplug.a',
+    [
+        '--disable-shared', '--enable-static',
+    ],
+)
+
+wildmidi = CmakeProject(
+    'https://codeload.github.com/Mindwerks/wildmidi/tar.gz/wildmidi-0.4.3',
+    '498e5a96455bb4b91b37188ad6dcb070824e92c44f5ed452b90adbaec8eef3c5',
+    'lib/libWildMidi.a',
+    [
+        '-DBUILD_SHARED_LIBS=OFF',
+        '-DWANT_PLAYER=OFF',
+        '-DWANT_STATIC=ON',
+    ],
+    base='wildmidi-wildmidi-0.4.3',
+    name='wildmidi',
+    version='0.4.3',
+)
+
+gme = CmakeProject(
+    'https://bitbucket.org/mpyne/game-music-emu/downloads/game-music-emu-0.6.3.tar.xz',
+    'aba34e53ef0ec6a34b58b84e28bf8cfbccee6585cebca25333604c35db3e051d',
+    'lib/libgme.a',
+    [
+        '-DBUILD_SHARED_LIBS=OFF',
+        '-DENABLE_UBSAN=OFF',
+        '-DZLIB_INCLUDE_DIR=OFF',
+        '-DSDL2_DIR=OFF',
+    ],
+)
+
 ffmpeg = FfmpegProject(
-    'http://ffmpeg.org/releases/ffmpeg-4.2.2.tar.xz',
-    'cb754255ab0ee2ea5f66f8850e1bd6ad5cac1cd855d0a2f4990fb8c668b0d29c',
+    'http://ffmpeg.org/releases/ffmpeg-4.3.1.tar.xz',
+    'ad009240d46e307b4e03a213a0f49c11b650e445b1f8be0dda2a9212b34d2ffb',
     'lib/libavcodec.a',
     [
         '--disable-shared', '--enable-static',
@@ -340,9 +377,15 @@ ffmpeg = FfmpegProject(
     ],
 )
 
+openssl = OpenSSLProject(
+    'https://www.openssl.org/source/openssl-3.0.0-alpha10.tar.gz',
+    'b1699acf2148db31f12edf5ebfdf12a92bfd3f0e60538d169710408a3cd3b138',
+    'include/openssl/ossl_typ.h',
+)
+
 curl = AutotoolsProject(
-    'http://curl.haxx.se/download/curl-7.69.1.tar.xz',
-    '03c7d5e6697f7b7e40ada1b2256e565a555657398e6c1fcfa4cb251ccd819d4f',
+    'http://curl.haxx.se/download/curl-7.74.0.tar.xz',
+    '999d5f2c403cf6e25d58319fdd596611e455dd195208746bc6e6d197a77e878b',
     'lib/libcurl.a',
     [
         '--disable-shared', '--enable-static',
@@ -363,7 +406,10 @@ curl = AutotoolsProject(
         '--disable-netrc',
         '--disable-progress-meter',
         '--disable-alt-svc',
-        '--without-ssl', '--without-gnutls', '--without-nss', '--without-libssh2',
+        '--without-gnutls', '--without-nss', '--without-libssh2',
+
+        # native Windows SSL/TLS support, option ignored on non-Windows builds
+        '--with-schannel',
     ],
 
     patches='src/lib/curl/patches',
@@ -393,11 +439,12 @@ libnfs = AutotoolsProject(
         '--disable-utils', '--disable-examples',
     ],
     base='libnfs-libnfs-4.0.0',
+    patches='src/lib/nfs/patches',
     autoreconf=True,
 )
 
 boost = BoostProject(
-    'https://dl.bintray.com/boostorg/release/1.72.0/source/boost_1_72_0.tar.bz2',
-    '59c9b274bc451cf91a9ba1dd2c7fdcaf5d60b1b3aa83f2c9fa143417cc660722',
+    'https://dl.bintray.com/boostorg/release/1.75.0/source/boost_1_75_0.tar.bz2',
+    '953db31e016db7bb207f11432bef7df100516eeb746843fa0486a222e3fd49cb',
     'include/boost/version.hpp',
 )

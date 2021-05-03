@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -69,46 +69,58 @@ UpdateWalk::RemoveExcludedFromDirectory(Directory &directory,
 	const ScopeDatabaseLock protect;
 
 	directory.ForEachChildSafe([&](Directory &child){
-			const auto name_fs =
-				AllocatedPath::FromUTF8(child.GetName());
+		const auto name_fs =
+			AllocatedPath::FromUTF8(child.GetName());
 
-			if (name_fs.IsNull() || exclude_list.Check(name_fs)) {
-				editor.DeleteDirectory(&child);
-				modified = true;
-			}
-		});
+		if (name_fs.IsNull() || exclude_list.Check(name_fs)) {
+			editor.DeleteDirectory(&child);
+			modified = true;
+		}
+	});
 
 	directory.ForEachSongSafe([&](Song &song){
-			assert(&song.parent == &directory);
+		assert(&song.parent == &directory);
 
-			const auto name_fs = AllocatedPath::FromUTF8(song.filename);
-			if (name_fs.IsNull() || exclude_list.Check(name_fs)) {
-				editor.DeleteSong(directory, &song);
-				modified = true;
-			}
-		});
+		const auto name_fs = AllocatedPath::FromUTF8(song.filename);
+		if (name_fs.IsNull() || exclude_list.Check(name_fs)) {
+			editor.DeleteSong(directory, &song);
+			modified = true;
+		}
+	});
 }
 
 inline void
 UpdateWalk::PurgeDeletedFromDirectory(Directory &directory) noexcept
 {
 	directory.ForEachChildSafe([&](Directory &child){
-			if (child.IsMount() || DirectoryExists(storage, child))
-				return;
+		if (child.IsMount())
+			/* mount points are always preserved */
+			return;
 
-			editor.LockDeleteDirectory(&child);
+		if (DirectoryExists(storage, child) &&
+		    child.IsPluginAvailable())
+			return;
 
-			modified = true;
-		});
+		/* the directory was deleted (or the plugin which
+		   handles this "virtual" directory is unavailable) */
+
+		editor.LockDeleteDirectory(&child);
+
+		modified = true;
+	});
 
 	directory.ForEachSongSafe([&](Song &song){
-			if (!directory_child_is_regular(storage, directory,
-							song.filename)) {
-				editor.LockDeleteSong(directory, &song);
+		if (!directory_child_is_regular(storage, directory,
+						song.filename) ||
+		    !song.IsPluginAvailable()) {
+			/* the song file was deleted (or the decoder
+			   plugin is unavailable) */
 
-				modified = true;
-			}
-		});
+			editor.LockDeleteSong(directory, &song);
+
+			modified = true;
+		}
+	});
 
 	for (auto i = directory.playlists.begin(),
 		     end = directory.playlists.end();
@@ -177,8 +189,8 @@ UpdateWalk::UpdateRegularFile(Directory &directory,
 			      const char *name,
 			      const StorageFileInfo &info) noexcept
 {
-	const char *suffix = uri_get_suffix(name);
-	if (suffix == nullptr)
+	const auto suffix = uri_get_suffix(name);
+	if (suffix.empty())
 		return false;
 
 	return UpdateSongFile(directory, name, suffix, info) ||
@@ -191,7 +203,7 @@ UpdateWalk::UpdateDirectoryChild(Directory &directory,
 				 const ExcludeList &exclude_list,
 				 const char *name, const StorageFileInfo &info) noexcept
 try {
-	assert(strchr(name, '/') == nullptr);
+	assert(std::strchr(name, '/') == nullptr);
 
 	if (info.IsRegular()) {
 		UpdateRegularFile(directory, name, info);
@@ -223,7 +235,7 @@ gcc_pure
 static bool
 skip_path(const char *name_utf8) noexcept
 {
-	return strchr(name_utf8, '\n') != nullptr;
+	return std::strchr(name_utf8, '\n') != nullptr;
 }
 
 gcc_pure
@@ -322,8 +334,8 @@ UpdateWalk::UpdateDirectory(Directory &directory,
 
 	try {
 		Mutex mutex;
-		auto is = InputStream::OpenReady(PathTraitsUTF8::Build(storage.MapUTF8(directory.GetPath()),
-								       ".mpdignore").c_str(),
+		auto is = InputStream::OpenReady(storage.MapUTF8(PathTraitsUTF8::Build(directory.GetPath(),
+										       ".mpdignore")).c_str(),
 						 mutex);
 		child_exclude_list.Load(std::move(is));
 	} catch (...) {
@@ -415,21 +427,19 @@ UpdateWalk::DirectoryMakeUriParentChecked(Directory &root,
 	StringView uri(_uri);
 
 	while (true) {
-		auto s = uri.Split('/');
-		const std::string_view name = s.first;
-		const auto rest = s.second;
+		auto [name, rest] = uri.Split('/');
 		if (rest == nullptr)
 			break;
 
 		if (!name.empty()) {
 			directory = DirectoryMakeChildChecked(*directory,
 							      std::string(name).c_str(),
-							      s.first);
+							      name);
 			if (directory == nullptr)
 				break;
 		}
 
-		uri = s.second;
+		uri = rest;
 	}
 
 	return directory;

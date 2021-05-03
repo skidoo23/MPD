@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -65,11 +65,11 @@ FormatInfo(const Domain &domain, const char *fmt, ...) noexcept
 }
 
 void
-FormatDefault(const Domain &domain, const char *fmt, ...) noexcept
+FormatNotice(const Domain &domain, const char *fmt, ...) noexcept
 {
 	std::va_list ap;
 	va_start(ap, fmt);
-	LogFormatV(LogLevel::DEFAULT, domain, fmt, ap);
+	LogFormatV(LogLevel::NOTICE, domain, fmt, ap);
 	va_end(ap);
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,8 +25,6 @@
 #include <stdexcept>
 #include <utility>
 
-class Domain;
-
 enum ack {
 	ACK_ERROR_NOT_LIST = 1,
 	ACK_ERROR_ARG = 2,
@@ -42,8 +40,6 @@ enum ack {
 	ACK_ERROR_PLAYER_SYNC = 55,
 	ACK_ERROR_EXIST = 56,
 };
-
-extern const Domain ack_domain;
 
 class ProtocolError : public std::runtime_error {
 	enum ack code;

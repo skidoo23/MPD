@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -196,8 +196,7 @@ UpdateService::Enqueue(std::string_view path, bool discard)
 			storage2 = storage.GetMount(path);
 			path = "";
 		} else {
-			const std::string mountpoint(lr.uri);
-			storage2 = storage.GetMount(mountpoint.c_str());
+			storage2 = storage.GetMount(lr.uri);
 			path = lr.rest;
 		}
 	} else {

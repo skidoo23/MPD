@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -42,8 +42,8 @@
 #include "util/ScopeExit.hxx"
 #include "util/RuntimeError.hxx"
 #include "protocol/Ack.hxx"
-#include "event/SocketMonitor.hxx"
-#include "event/IdleMonitor.hxx"
+#include "event/SocketEvent.hxx"
+#include "event/IdleEvent.hxx"
 #include "Log.hxx"
 
 #include <mpd/client.h>
@@ -85,7 +85,10 @@ public:
 	}
 };
 
-class ProxyDatabase final : public Database, SocketMonitor, IdleMonitor {
+class ProxyDatabase final : public Database {
+	SocketEvent socket_event;
+	IdleEvent idle_event;
+
 	DatabaseListener &listener;
 
 	const std::string host;
@@ -147,11 +150,8 @@ private:
 
 	void Disconnect() noexcept;
 
-	/* virtual methods from SocketMonitor */
-	bool OnSocketReady(unsigned flags) noexcept override;
-
-	/* virtual methods from IdleMonitor */
-	void OnIdle() noexcept override;
+	void OnSocketReady(unsigned flags) noexcept;
+	void OnIdle() noexcept;
 };
 
 static constexpr struct {
@@ -188,6 +188,20 @@ static constexpr struct {
 #endif
 #if LIBMPDCLIENT_CHECK_VERSION(2,12,0)
 	{ TAG_ALBUM_SORT, MPD_TAG_ALBUM_SORT },
+#endif
+#if LIBMPDCLIENT_CHECK_VERSION(2,17,0)
+	{ TAG_WORK, MPD_TAG_WORK },
+	{ TAG_CONDUCTOR, MPD_TAG_CONDUCTOR },
+	{ TAG_LABEL, MPD_TAG_LABEL },
+	{ TAG_GROUPING, MPD_TAG_GROUPING },
+	{ TAG_MUSICBRAINZ_WORKID, MPD_TAG_MUSICBRAINZ_WORKID },
+#endif
+#if LIBMPDCLIENT_CHECK_VERSION(2,20,0)
+	{ TAG_COMPOSERSORT, MPD_TAG_COMPOSER_SORT },
+	{ TAG_ENSEMBLE, MPD_TAG_ENSEMBLE },
+	{ TAG_MOVEMENT, MPD_TAG_MOVEMENT },
+	{ TAG_MOVEMENTNUMBER, MPD_TAG_MOVEMENTNUMBER },
+	{ TAG_LOCATION, MPD_TAG_LOCATION },
 #endif
 	{ TAG_NUM_OF_ITEM_TYPES, MPD_TAG_COUNT }
 };
@@ -356,11 +370,9 @@ SendConstraints(mpd_connection *connection, const SongFilter &filter)
 						 filter.ToExpression().c_str());
 #endif
 
-	for (const auto &i : filter.GetItems())
-		if (!SendConstraints(connection, *i))
-			return false;
-
-	return true;
+	return std::all_of(
+		filter.GetItems().begin(), filter.GetItems().end(),
+		[=](const auto &item) { return SendConstraints(connection, *item); });
 }
 
 static bool
@@ -445,7 +457,8 @@ SendGroup(mpd_connection *connection, ConstBuffer<TagType> group)
 ProxyDatabase::ProxyDatabase(EventLoop &_loop, DatabaseListener &_listener,
 			     const ConfigBlock &block)
 	:Database(proxy_db_plugin),
-	 SocketMonitor(_loop), IdleMonitor(_loop),
+	 socket_event(_loop, BIND_THIS_METHOD(OnSocketReady)),
+	 idle_event(_loop, BIND_THIS_METHOD(OnIdle)),
 	 listener(_listener),
 	 host(block.GetBlockValue("host", "")),
 	 password(block.GetBlockValue("password", "")),
@@ -494,9 +507,13 @@ ProxyDatabase::Connect()
 	try {
 		CheckError(connection);
 
-		if (mpd_connection_cmp_server_version(connection, 0, 19, 0) < 0)
-			throw FormatRuntimeError("Connect to MPD %s, but this plugin requires at least version 0.19",
-						 mpd_connection_get_server_version(connection));
+		if (mpd_connection_cmp_server_version(connection, 0, 19, 0) < 0) {
+			const unsigned *version =
+				mpd_connection_get_server_version(connection);
+			throw FormatRuntimeError("Connect to MPD %u.%u.%u, but this "
+						 "plugin requires at least version 0.19",
+						 version[0], version[1], version[2]);
+		}
 
 		if (!password.empty() &&
 		    !mpd_run_password(connection, password.c_str()))
@@ -521,8 +538,8 @@ ProxyDatabase::Connect()
 	idle_received = ~0U;
 	is_idle = false;
 
-	SocketMonitor::Open(SocketDescriptor(mpd_async_get_fd(mpd_connection_get_async(connection))));
-	IdleMonitor::Schedule();
+	socket_event.Open(SocketDescriptor(mpd_async_get_fd(mpd_connection_get_async(connection))));
+	idle_event.Schedule();
 }
 
 void
@@ -549,7 +566,7 @@ ProxyDatabase::CheckConnection()
 
 		idle_received |= idle;
 		is_idle = false;
-		IdleMonitor::Schedule();
+		idle_event.Schedule();
 	}
 }
 
@@ -567,23 +584,23 @@ ProxyDatabase::Disconnect() noexcept
 {
 	assert(connection != nullptr);
 
-	IdleMonitor::Cancel();
-	SocketMonitor::Steal();
+	idle_event.Cancel();
+	socket_event.ReleaseSocket();
 
 	mpd_connection_free(connection);
 	connection = nullptr;
 }
 
-bool
+void
 ProxyDatabase::OnSocketReady([[maybe_unused]] unsigned flags) noexcept
 {
 	assert(connection != nullptr);
 
 	if (!is_idle) {
 		// TODO: can this happen?
-		IdleMonitor::Schedule();
-		SocketMonitor::Cancel();
-		return true;
+		idle_event.Schedule();
+		socket_event.Cancel();
+		return;
 	}
 
 	auto idle = (unsigned)mpd_recv_idle(connection, false);
@@ -593,16 +610,15 @@ ProxyDatabase::OnSocketReady([[maybe_unused]] unsigned flags) noexcept
 		} catch (...) {
 			LogError(std::current_exception());
 			Disconnect();
-			return false;
+			return;
 		}
 	}
 
 	/* let OnIdle() handle this */
 	idle_received |= idle;
 	is_idle = false;
-	IdleMonitor::Schedule();
-	SocketMonitor::Cancel();
-	return true;
+	idle_event.Schedule();
+	socket_event.Cancel();
 }
 
 void
@@ -630,14 +646,14 @@ ProxyDatabase::OnIdle() noexcept
 			LogError(std::current_exception());
 		}
 
-		SocketMonitor::Steal();
+		socket_event.ReleaseSocket();
 		mpd_connection_free(connection);
 		connection = nullptr;
 		return;
 	}
 
 	is_idle = true;
-	SocketMonitor::ScheduleRead();
+	socket_event.ScheduleRead();
 }
 
 const LightSong *
@@ -892,11 +908,8 @@ IsFilterFullySupported(const SongFilter &filter,
 	(void)connection;
 #endif
 
-	for (const auto &i : filter.GetItems())
-		if (!IsFilterSupported(*i))
-			return false;
-
-	return true;
+	return std::all_of(filter.GetItems().begin(), filter.GetItems().end(),
+			   [](const auto &item) { return IsFilterSupported(*item); });
 }
 
 gcc_pure

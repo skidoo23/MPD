@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -24,9 +24,8 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <memory>
-
-#include <string.h>
 
 struct ApeFooter {
 	unsigned char id[8];
@@ -83,7 +82,7 @@ try {
 
 		/* get the key */
 		const char *key = p;
-		const char *key_end = (const char *)memchr(p, '\0', remaining);
+		const char *key_end = (const char *)std::memchr(p, '\0', remaining);
 		if (key_end == nullptr)
 			break;
 

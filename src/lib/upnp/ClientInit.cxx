@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -33,10 +33,7 @@ static UpnpClient_Handle upnp_client_handle;
 
 static int
 UpnpClientCallback(Upnp_EventType et,
-#if UPNP_VERSION >= 10800
-		   const
-#endif
-		   void *evp,
+		   const void *evp,
 		   void *cookie) noexcept
 {
 	if (cookie == nullptr)

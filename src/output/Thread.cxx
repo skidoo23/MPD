@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -18,6 +18,7 @@
  */
 
 #include "Control.hxx"
+#include "Error.hxx"
 #include "Filtered.hxx"
 #include "Client.hxx"
 #include "Domain.hxx"
@@ -52,7 +53,7 @@ AudioOutputControl::InternalOpen2(const AudioFormat in_audio_format)
 	if (open && cf != output->filter_audio_format)
 		/* if the filter's output format changes, the output
 		   must be reopened as well */
-		InternalCloseOutput(true);
+		InternalCloseOutput(playing);
 
 	output->filter_audio_format = cf;
 
@@ -63,6 +64,7 @@ AudioOutputControl::InternalOpen2(const AudioFormat in_audio_format)
 		}
 
 		open = true;
+		playing = false;
 	} else if (in_audio_format != output->out_audio_format) {
 		/* reconfigure the final ConvertFilter for its new
 		   input AudioFormat */
@@ -135,6 +137,7 @@ AudioOutputControl::InternalOpen(const AudioFormat in_audio_format,
 
 	last_error = nullptr;
 	fail_timer.Reset();
+	caught_interrupted = false;
 	skip_delay = true;
 
 	AudioFormat f;
@@ -243,6 +246,9 @@ AudioOutputControl::PlayChunk(std::unique_lock<Mutex> &lock) noexcept
 		const ScopeUnlock unlock(mutex);
 		try {
 			output->SendTag(*tag);
+		} catch (AudioOutputInterrupted) {
+			caught_interrupted = true;
+			return false;
 		} catch (...) {
 			FormatError(std::current_exception(),
 				    "Failed to send tag to %s",
@@ -267,6 +273,9 @@ AudioOutputControl::PlayChunk(std::unique_lock<Mutex> &lock) noexcept
 			nbytes = output->Play(data.data, data.size);
 			assert(nbytes > 0);
 			assert(nbytes <= data.size);
+		} catch (AudioOutputInterrupted) {
+			caught_interrupted = true;
+			return false;
 		} catch (...) {
 			FormatError(std::current_exception(),
 				    "Failed to play on %s", GetLogName());
@@ -277,6 +286,9 @@ AudioOutputControl::PlayChunk(std::unique_lock<Mutex> &lock) noexcept
 		assert(nbytes % output->out_audio_format.GetFrameSize() == 0);
 
 		source.ConsumeData(nbytes);
+
+		/* there's data to be drained from now on */
+		playing = true;
 	}
 
 	return true;
@@ -338,10 +350,15 @@ AudioOutputControl::InternalPause(std::unique_lock<Mutex> &lock) noexcept
 		if (!WaitForDelay(lock))
 			break;
 
-		bool success;
-		{
+		bool success = false;
+		try {
 			const ScopeUnlock unlock(mutex);
 			success = output->IteratePause();
+		} catch (AudioOutputInterrupted) {
+		} catch (...) {
+			FormatError(std::current_exception(),
+				    "Failed to pause %s",
+				    GetLogName());
 		}
 
 		if (!success) {
@@ -358,6 +375,9 @@ AudioOutputControl::InternalPause(std::unique_lock<Mutex> &lock) noexcept
 	}
 
 	skip_delay = true;
+
+	/* ignore drain commands until we got something new to play */
+	playing = false;
 }
 
 static void
@@ -377,6 +397,10 @@ PlayFull(FilteredAudioOutput &output, ConstBuffer<void> _buffer)
 inline void
 AudioOutputControl::InternalDrain() noexcept
 {
+	/* after this method finishes, there's nothing left to be
+	   drained */
+	playing = false;
+
 	try {
 		/* flush the filter and play its remaining output */
 
@@ -418,6 +442,17 @@ AudioOutputControl::Task() noexcept
 	while (true) {
 		switch (command) {
 		case Command::NONE:
+			/* no pending command: play (or wait for a
+			   command) */
+
+			if (open && allow_play && !caught_interrupted &&
+			    InternalPlay(lock))
+				/* don't wait for an event if there
+				   are more chunks in the pipe */
+				continue;
+
+			woken_for_play = false;
+			wake_cond.wait(lock);
 			break;
 
 		case Command::ENABLE:
@@ -449,12 +484,10 @@ AudioOutputControl::Task() noexcept
 				break;
 			}
 
+			caught_interrupted = false;
+
 			InternalPause(lock);
-			/* don't "break" here: this might cause
-			   Play() to be called when command==CLOSE
-			   ends the paused state - "continue" checks
-			   the new command first */
-			continue;
+			break;
 
 		case Command::RELEASE:
 			if (!open) {
@@ -464,6 +497,8 @@ AudioOutputControl::Task() noexcept
 				CommandFinished();
 				break;
 			}
+
+			caught_interrupted = false;
 
 			if (always_on) {
 				/* in "always_on" mode, the output is
@@ -479,45 +514,34 @@ AudioOutputControl::Task() noexcept
 				CommandFinished();
 			}
 
-			/* don't "break" here: this might cause
-			   Play() to be called when command==CLOSE
-			   ends the paused state - "continue" checks
-			   the new command first */
-			continue;
+			break;
 
 		case Command::DRAIN:
 			if (open)
 				InternalDrain();
 
 			CommandFinished();
-			continue;
+			break;
 
 		case Command::CANCEL:
+			caught_interrupted = false;
+
 			source.Cancel();
 
 			if (open) {
+				playing = false;
 				const ScopeUnlock unlock(mutex);
 				output->Cancel();
 			}
 
 			CommandFinished();
-			continue;
+			break;
 
 		case Command::KILL:
 			InternalDisable();
 			source.Cancel();
 			CommandFinished();
 			return;
-		}
-
-		if (open && allow_play && InternalPlay(lock))
-			/* don't wait for an event if there are more
-			   chunks in the pipe */
-			continue;
-
-		if (command == Command::NONE) {
-			woken_for_play = false;
-			wake_cond.wait(lock);
 		}
 	}
 }

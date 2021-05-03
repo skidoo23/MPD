@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1013,7 +1013,7 @@ MadDecoder::RunScan(TagHandler &handler) noexcept
 }
 
 static bool
-mad_decoder_scan_stream(InputStream &is, TagHandler &handler) noexcept
+mad_decoder_scan_stream(InputStream &is, TagHandler &handler)
 {
 	MadDecoder data(nullptr, is);
 	return data.RunScan(handler);

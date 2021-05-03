@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,6 @@ sticker_print_value(Response &r,
 void
 sticker_print(Response &r, const Sticker &sticker)
 {
-	for (const auto &i : sticker.table)
-		sticker_print_value(r, i.first.c_str(), i.second.c_str());
+	for (const auto &[name, val] : sticker.table)
+		sticker_print_value(r, name.c_str(), val.c_str());
 }

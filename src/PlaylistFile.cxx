@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -43,8 +43,7 @@
 #include "util/UriExtract.hxx"
 
 #include <cassert>
-
-#include <string.h>
+#include <cstring>
 
 static const char PLAYLIST_COMMENT = '#';
 
@@ -81,9 +80,9 @@ spl_valid_name(const char *name_utf8)
 	 * filenames isn't going to happen, either.
 	 */
 
-	return strchr(name_utf8, '/') == nullptr &&
-		strchr(name_utf8, '\n') == nullptr &&
-		strchr(name_utf8, '\r') == nullptr;
+	return std::strchr(name_utf8, '/') == nullptr &&
+		std::strchr(name_utf8, '\n') == nullptr &&
+		std::strchr(name_utf8, '\r') == nullptr;
 }
 
 static const AllocatedPath &

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,6 +20,7 @@
 #include "config.h"
 #include "DecoderList.hxx"
 #include "DecoderPlugin.hxx"
+#include "decoder/Features.h"
 #include "PluginUnavailable.hxx"
 #include "Log.hxx"
 #include "config/Data.hxx"
@@ -52,7 +53,7 @@
 
 #include <string.h>
 
-const struct DecoderPlugin *const decoder_plugins[] = {
+constexpr const struct DecoderPlugin *decoder_plugins[] = {
 #ifdef ENABLE_MAD
 	&mad_decoder_plugin,
 #endif
@@ -174,7 +175,7 @@ decoder_plugin_deinit_all() noexcept
 }
 
 bool
-decoder_plugins_supports_suffix(const char *suffix) noexcept
+decoder_plugins_supports_suffix(std::string_view suffix) noexcept
 {
 	return decoder_plugins_try([suffix](const DecoderPlugin &plugin){
 			return plugin.SupportsSuffix(suffix);

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -164,7 +164,7 @@ ParseConfigLine(char *line, const char *dir_name, AllocatedPath &result_dir)
 	char *line_end;
 	// find end of the string
 	if (quoted) {
-		line_end = strrchr(line, '"');
+		line_end = std::strrchr(line, '"');
 		if (line_end == nullptr)
 			return true;
 	} else {

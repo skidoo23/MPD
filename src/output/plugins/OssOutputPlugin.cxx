@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 #include "OssOutputPlugin.hxx"
 #include "../OutputAPI.hxx"
 #include "mixer/MixerList.hxx"
-#include "system/UniqueFileDescriptor.hxx"
+#include "io/UniqueFileDescriptor.hxx"
 #include "system/Error.hxx"
 #include "util/ConstBuffer.hxx"
 #include "util/Domain.hxx"

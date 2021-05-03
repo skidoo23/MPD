@@ -30,7 +30,7 @@
 #ifndef EVENT_FD_HXX
 #define EVENT_FD_HXX
 
-#include "UniqueFileDescriptor.hxx"
+#include "io/UniqueFileDescriptor.hxx"
 
 /**
  * A class that wraps eventfd().
@@ -44,8 +44,8 @@ public:
 	 */
 	EventFD();
 
-	int Get() const noexcept {
-		return fd.Get();
+	FileDescriptor Get() const noexcept {
+		return fd;
 	}
 
 	/**

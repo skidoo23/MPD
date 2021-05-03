@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -47,6 +47,9 @@ merge_song_metadata(DetachedSong &add, const DetachedSong &base) noexcept
 	if (add.GetEndTime().IsZero()) {
 		add.SetEndTime(base.GetEndTime());
 	}
+
+	if (!add.GetAudioFormat().IsDefined())
+		add.SetAudioFormat(base.GetAudioFormat());
 }
 
 static bool
@@ -78,7 +81,7 @@ playlist_check_translate_song(DetachedSong &song, std::string_view base_uri,
 	const char *uri = song.GetURI();
 
 #ifdef _WIN32
-	if (!PathTraitsUTF8::IsAbsolute(uri) && strchr(uri, '\\') != nullptr) {
+	if (!PathTraitsUTF8::IsAbsolute(uri) && std::strchr(uri, '\\') != nullptr) {
 		/* Windows uses the backslash as path separator, but
 		   the MPD protocol uses the (forward) slash by
 		   definition; to allow backslashes in relative URIs

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -37,9 +37,12 @@
 #include "fs/Traits.hxx"
 #include "fs/FileSystem.hxx"
 #include "fs/StandardDirectory.hxx"
+#include "event/Features.h"
+#include "io/uring/Features.h"
 #include "util/Domain.hxx"
 #include "util/OptionDef.hxx"
 #include "util/OptionParser.hxx"
+#include "Version.h"
 
 #ifdef _WIN32
 #include "system/Error.hxx"
@@ -57,6 +60,7 @@
 #include "neighbor/NeighborPlugin.hxx"
 #endif
 
+#include "encoder/Features.h"
 #ifdef ENABLE_ENCODER
 #include "encoder/EncoderList.hxx"
 #include "encoder/EncoderPlugin.hxx"
@@ -144,15 +148,19 @@ static void version()
 	       "Decoders plugins:\n");
 
 	decoder_plugins_for_each([](const DecoderPlugin &plugin){
-			printf(" [%s]", plugin.name);
+		printf(" [%s]", plugin.name);
 
-			const char *const*suffixes = plugin.suffixes;
-			if (suffixes != nullptr)
-				for (; *suffixes != nullptr; ++suffixes)
-					printf(" %s", *suffixes);
+		const char *const*suffixes = plugin.suffixes;
+		if (suffixes != nullptr)
+			for (; *suffixes != nullptr; ++suffixes)
+				printf(" %s", *suffixes);
 
-			printf("\n");
-		});
+		if (plugin.protocols != nullptr)
+			for (const auto &i : plugin.protocols())
+				printf(" %s", i.c_str());
+
+		printf("\n");
+	});
 
 	printf("\n"
 	       "Filters:\n"
@@ -201,6 +209,9 @@ static void version()
 	       "\n"
 	       "Input plugins:\n"
 	       " file"
+#ifdef HAVE_URING
+	       " io_uring"
+#endif
 #ifdef ENABLE_ARCHIVE
 	       " archive"
 #endif

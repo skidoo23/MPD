@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -316,6 +316,18 @@ CommandResult
 handle_rescan(Client &client, Request args, Response &r)
 {
 	return handle_update(client, args, r, true);
+}
+
+CommandResult
+handle_getvol(Client &client, Request, Response &r)
+{
+	auto &partition = client.GetPartition();
+
+	const auto volume = volume_level_get(partition.outputs);
+	if (volume >= 0)
+		r.Format("volume: %i\n", volume);
+
+	return CommandResult::OK;
 }
 
 CommandResult

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -184,6 +184,12 @@ FilteredAudioOutput::Drain()
 }
 
 void
+FilteredAudioOutput::Interrupt() noexcept
+{
+	output->Interrupt();
+}
+
+void
 FilteredAudioOutput::Cancel() noexcept
 {
 	output->Cancel();
@@ -196,13 +202,7 @@ FilteredAudioOutput::BeginPause() noexcept
 }
 
 bool
-FilteredAudioOutput::IteratePause() noexcept
+FilteredAudioOutput::IteratePause()
 {
-	try {
-		return output->Pause();
-	} catch (...) {
-		FormatError(std::current_exception(), "Failed to pause %s",
-			    GetLogName());
-		return false;
-	}
+	return output->Pause();
 }

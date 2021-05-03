@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -62,7 +62,7 @@ mixramp_interpolate(const char *ramp_list, float required_db) noexcept
 			++ramp_list;
 
 		/* Check for exact match. */
-		if (db >= required_db) {
+		if (db == required_db) {
 			return duration;
 		}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -38,14 +38,18 @@
 
 #include <cassert>
 #include <cmath>
+#include <stdexcept>
 
 #include <string.h>
 
 DecoderBridge::DecoderBridge(DecoderControl &_dc, bool _initial_seek_pending,
+			     bool _initial_seek_essential,
 			     std::unique_ptr<Tag> _tag) noexcept
 	:dc(_dc),
 	 initial_seek_pending(_initial_seek_pending),
+	 initial_seek_essential(_initial_seek_essential),
 	 song_tag(std::move(_tag)) {}
+
 
 DecoderBridge::~DecoderBridge() noexcept
 {
@@ -66,7 +70,9 @@ DecoderBridge::OpenLocal(Path path_fs, const char *uri_utf8)
 		}
 	}
 
-	return OpenLocalInputStream(path_fs, dc.mutex);
+	auto is = OpenLocalInputStream(path_fs, dc.mutex);
+	is->SetHandler(&dc);
+	return is;
 }
 
 bool
@@ -362,6 +368,10 @@ DecoderBridge::SeekError() noexcept
 		/* d'oh, we can't seek to the sub-song start position,
 		   what now? - no idea, ignoring the problem for now. */
 		initial_seek_running = false;
+
+		if (initial_seek_essential)
+			error = std::make_exception_ptr(std::runtime_error("Decoder failed to seek"));
+
 		return;
 	}
 

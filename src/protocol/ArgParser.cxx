@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -94,7 +94,7 @@ ParseCommandArgRange(const char *s)
 						  s);
 
 		if (test == test2)
-			value = std::numeric_limits<int>::max();
+			return RangeArg::OpenEnded(range.start);
 
 		if (value < 0)
 			throw FormatProtocolError(ACK_ERROR_ARG,
@@ -107,8 +107,12 @@ ParseCommandArgRange(const char *s)
 
 		range.end = (unsigned)value;
 	} else {
-		range.end = (unsigned)value + 1;
+		return RangeArg::Single(range.start);
 	}
+
+	if (!range.IsWellFormed())
+		throw FormatProtocolError(ACK_ERROR_ARG,
+					  "Malformed range: %s", s);
 
 	return range;
 }

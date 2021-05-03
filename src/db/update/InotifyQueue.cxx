@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,7 @@
  * UpdateService::Enqueue().  This increases the probability that
  * updates can be bundled.
  */
-static constexpr std::chrono::steady_clock::duration INOTIFY_UPDATE_DELAY =
+static constexpr Event::Duration INOTIFY_UPDATE_DELAY =
 	std::chrono::seconds(5);
 
 void

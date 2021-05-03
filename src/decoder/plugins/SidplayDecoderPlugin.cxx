@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "config.h"
 #include "SidplayDecoderPlugin.hxx"
+#include "decoder/Features.h"
 #include "../DecoderAPI.hxx"
 #include "tag/Handler.hxx"
 #include "tag/Builder.hxx"
@@ -59,10 +59,6 @@
 #include <memory>
 
 #include <string.h>
-
-#ifdef HAVE_SIDPLAYFP
-#define LIBSIDPLAYFP_VERSION GCC_MAKE_VERSION(LIBSIDPLAYFP_VERSION_MAJ, LIBSIDPLAYFP_VERSION_MIN, LIBSIDPLAYFP_VERSION_LEV)
-#endif
 
 #define SUBTUNE_PREFIX "tune_"
 
@@ -219,11 +215,24 @@ get_song_length(T &tune) noexcept
 	if (sidplay_global->songlength_database == nullptr)
 		return SignedSongTime::Negative();
 
-	const auto length = sidplay_global->songlength_database->length(tune);
-	if (length < 0)
+#if LIBSIDPLAYFP_VERSION_MAJ >= 2
+	const auto lengthms =
+		sidplay_global->songlength_database->lengthMs(tune);
+	/* check for new song length format since HVSC#68 or later */
+	if (lengthms < 0)
+	{
+#endif
+		/* old song lenghth format */
+		const auto length =
+			sidplay_global->songlength_database->length(tune);
+		if (length >= 0)
+			return SignedSongTime::FromS(length);
 		return SignedSongTime::Negative();
 
-	return SignedSongTime::FromS(length);
+#if LIBSIDPLAYFP_VERSION_MAJ >= 2
+	}
+	return SignedSongTime::FromMS(lengthms);
+#endif
 }
 
 static void
@@ -352,11 +361,7 @@ sidplay_file_decode(DecoderClient &client, Path path_fs)
 #endif
 
 #ifdef HAVE_SIDPLAYFP
-#if LIBSIDPLAYFP_VERSION >= GCC_MAKE_VERSION(1,8,0)
 	const bool stereo = tune.getInfo()->sidChips() >= 2;
-#else
-	const bool stereo = tune.getInfo()->isStereo();
-#endif
 #else
 	const bool stereo = tune.isStereo();
 #endif
@@ -451,7 +456,7 @@ sidplay_file_decode(DecoderClient &client, Path path_fs)
 	} while (cmd != DecoderCommand::STOP);
 }
 
-static AllocatedString<char>
+static AllocatedString
 Windows1252ToUTF8(const char *s) noexcept
 {
 #ifdef HAVE_ICU_CONVERTER
@@ -464,9 +469,9 @@ Windows1252ToUTF8(const char *s) noexcept
 	 * Fallback to not transcoding windows-1252 to utf-8, that may result
 	 * in invalid utf-8 unless nonprintable characters are replaced.
 	 */
-	auto t = AllocatedString<char>::Duplicate(s);
+	AllocatedString t(s);
 
-	for (size_t i = 0; t[i] != AllocatedString<char>::SENTINEL; i++)
+	for (size_t i = 0; t[i] != AllocatedString::SENTINEL; i++)
 		if (!IsPrintableASCII(t[i]))
 			t[i] = '?';
 
@@ -474,7 +479,7 @@ Windows1252ToUTF8(const char *s) noexcept
 }
 
 gcc_pure
-static AllocatedString<char>
+static AllocatedString
 GetInfoString(const SidTuneInfo &info, unsigned i) noexcept
 {
 #ifdef HAVE_SIDPLAYFP
@@ -491,7 +496,7 @@ GetInfoString(const SidTuneInfo &info, unsigned i) noexcept
 }
 
 gcc_pure
-static AllocatedString<char>
+static AllocatedString
 GetDateString(const SidTuneInfo &info) noexcept
 {
 	/*
@@ -502,12 +507,12 @@ GetDateString(const SidTuneInfo &info) noexcept
 	 * author or group> may be for example Rob Hubbard. A full field
 	 * may be for example "1987 Rob Hubbard".
 	 */
-	AllocatedString<char> release = GetInfoString(info, 2);
+	AllocatedString release = GetInfoString(info, 2);
 
 	/* Keep the <year> part only for the date. */
-	for (size_t i = 0; release[i] != AllocatedString<char>::SENTINEL; i++)
+	for (size_t i = 0; release[i] != AllocatedString::SENTINEL; i++)
 		if (std::isspace(release[i])) {
-			release[i] = AllocatedString<char>::SENTINEL;
+			release[i] = AllocatedString::SENTINEL;
 			break;
 		}
 

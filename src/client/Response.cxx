@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -59,7 +59,7 @@ Response::Format(const char *fmt, ...) noexcept
 bool
 Response::WriteBinary(ConstBuffer<void> payload) noexcept
 {
-	assert(payload.size <= MAX_BINARY_SIZE);
+	assert(payload.size <= client.binary_limit);
 
 	return Format("binary: %zu\n", payload.size) &&
 		Write(payload.data, payload.size) &&

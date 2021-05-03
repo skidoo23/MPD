@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "lib/alsa/PeriodBuffer.hxx"
 #include "lib/alsa/Version.hxx"
 #include "../OutputAPI.hxx"
+#include "../Error.hxx"
 #include "mixer/MixerList.hxx"
 #include "pcm/Export.hxx"
 #include "system/PeriodClock.hxx"
@@ -36,7 +37,8 @@
 #include "util/ConstBuffer.hxx"
 #include "util/StringView.hxx"
 #include "event/MultiSocketMonitor.hxx"
-#include "event/DeferEvent.hxx"
+#include "event/InjectEvent.hxx"
+#include "event/FineTimerEvent.hxx"
 #include "event/Call.hxx"
 #include "Log.hxx"
 
@@ -54,7 +56,7 @@ static constexpr unsigned MPD_ALSA_BUFFER_TIME_US = 500000;
 class AlsaOutput final
 	: AudioOutput, MultiSocketMonitor {
 
-	DeferEvent defer_invalidate_sockets;
+	InjectEvent defer_invalidate_sockets;
 
 	/**
 	 * This timer is used to re-schedule the #MultiSocketMonitor
@@ -63,7 +65,7 @@ class AlsaOutput final
 	 * generating silence if Play() doesn't get called soon enough
 	 * to avoid the xrun.
 	 */
-	TimerEvent silence_timer;
+	FineTimerEvent silence_timer;
 
 	PeriodClock throttle_silence_log;
 
@@ -118,7 +120,7 @@ class AlsaOutput final
 	 */
 	snd_pcm_uframes_t period_frames;
 
-	std::chrono::steady_clock::duration effective_period_duration;
+	Event::Duration effective_period_duration;
 
 	/**
 	 * If snd_pcm_avail() goes above this value and no more data
@@ -176,6 +178,15 @@ class AlsaOutput final
 	bool written;
 
 	bool drain;
+
+	/**
+	 * Was Interrupt() called?  This will unblock
+	 * LockWaitWriteAvailable().  It will be reset by Cancel() and
+	 * Pause(), as documented by the #AudioOutput interface.
+	 *
+	 * Only initialized while the output is open.
+	 */
+	bool interrupted;
 
 	/**
 	 * This buffer gets allocated after opening the ALSA device.
@@ -237,9 +248,12 @@ private:
 	void Open(AudioFormat &audio_format) override;
 	void Close() noexcept override;
 
+	void Interrupt() noexcept override;
+
 	size_t Play(const void *chunk, size_t size) override;
 	void Drain() override;
 	void Cancel() noexcept override;
+	bool Pause() noexcept override;
 
 	/**
 	 * Set up the snd_pcm_t object which was opened by the caller.
@@ -385,7 +399,7 @@ private:
 	}
 
 	/* virtual methods from class MultiSocketMonitor */
-	std::chrono::steady_clock::duration PrepareSockets() noexcept override;
+	Event::Duration PrepareSockets() noexcept override;
 	void DispatchSockets() noexcept override;
 };
 
@@ -728,6 +742,7 @@ AlsaOutput::Open(AudioFormat &audio_format)
 	out_frame_size = pcm_export->GetOutputFrameSize();
 
 	drain = false;
+	interrupted = false;
 
 	size_t period_size = period_frames * out_frame_size;
 	ring_buffer = new boost::lockfree::spsc_queue<uint8_t>(period_size * 4);
@@ -739,6 +754,18 @@ AlsaOutput::Open(AudioFormat &audio_format)
 	must_prepare = false;
 	written = false;
 	error = {};
+}
+
+void
+AlsaOutput::Interrupt() noexcept
+{
+	std::unique_lock<Mutex> lock(mutex);
+
+	/* the "interrupted" flag will prevent
+	   LockWaitWriteAvailable() from actually waiting, and will
+	   instead throw AudioOutputInterrupted */
+	interrupted = true;
+	cond.notify_one();
 }
 
 inline int
@@ -912,6 +939,11 @@ AlsaOutput::CancelInternal() noexcept
 void
 AlsaOutput::Cancel() noexcept
 {
+	{
+		std::unique_lock<Mutex> lock(mutex);
+		interrupted = false;
+	}
+
 	if (!LockIsActive()) {
 		/* early cancel, quick code path without thread
 		   synchronization */
@@ -926,6 +958,17 @@ AlsaOutput::Cancel() noexcept
 	BlockingCall(GetEventLoop(), [this](){
 			CancelInternal();
 		});
+}
+
+bool
+AlsaOutput::Pause() noexcept
+{
+	std::unique_lock<Mutex> lock(mutex);
+	interrupted = false;
+
+	/* not implemented - this override exists only to reset the
+	   "interrupted" flag */
+	return false;
 }
 
 void
@@ -955,6 +998,11 @@ AlsaOutput::LockWaitWriteAvailable()
 	while (true) {
 		if (error)
 			std::rethrow_exception(error);
+
+		if (interrupted)
+			/* a CANCEL command is in flight - don't block
+			   here */
+			throw AudioOutputInterrupted{};
 
 		size_t write_available = ring_buffer->write_available();
 		if (write_available >= min_available) {
@@ -1005,12 +1053,12 @@ AlsaOutput::Play(const void *chunk, size_t size)
 	return size;
 }
 
-std::chrono::steady_clock::duration
+Event::Duration
 AlsaOutput::PrepareSockets() noexcept
 {
 	if (!LockIsActiveAndNotWaiting()) {
 		ClearSocketList();
-		return std::chrono::steady_clock::duration(-1);
+		return Event::Duration(-1);
 	}
 
 	try {
@@ -1018,7 +1066,7 @@ AlsaOutput::PrepareSockets() noexcept
 	} catch (...) {
 		ClearSocketList();
 		LockCaughtError();
-		return std::chrono::steady_clock::duration(-1);
+		return Event::Duration(-1);
 	}
 }
 
@@ -1134,7 +1182,7 @@ try {
 	LockCaughtError();
 }
 
-const struct AudioOutputPlugin alsa_output_plugin = {
+constexpr struct AudioOutputPlugin alsa_output_plugin = {
 	"alsa",
 	alsa_test_default_device,
 	&AlsaOutput::Create,

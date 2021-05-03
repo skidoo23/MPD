@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -241,7 +241,7 @@ audiofile_stream_decode(DecoderClient &client, InputStream &is)
 }
 
 static bool
-audiofile_scan_stream(InputStream &is, TagHandler &handler) noexcept
+audiofile_scan_stream(InputStream &is, TagHandler &handler)
 {
 	if (!is.IsSeekable() || !is.KnownSize())
 		return false;

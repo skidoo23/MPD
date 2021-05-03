@@ -2,12 +2,16 @@ input_plugins_sources = [
   'FileInputPlugin.cxx',
 ]
 
+if uring_dep.found()
+  input_plugins_sources += 'UringInputPlugin.cxx'
+endif
+
 if alsa_dep.found()
   input_plugins_sources += 'AlsaInputPlugin.cxx'
 endif
 
 libcdio_paranoia_dep = dependency('libcdio_paranoia', version: '>= 10.2+0.93+1', required: get_option('cdio_paranoia'))
-conf.set('ENABLE_CDIO_PARANOIA', libcdio_paranoia_dep.found())
+input_features.set('ENABLE_CDIO_PARANOIA', libcdio_paranoia_dep.found())
 if libcdio_paranoia_dep.found()
   input_plugins_sources += 'CdioParanoiaInputPlugin.cxx'
 endif
@@ -25,7 +29,7 @@ if ffmpeg_dep.found()
 endif
 
 libmms_dep = dependency('libmms', version: '>= 0.4', required: get_option('mms'))
-conf.set('ENABLE_MMS', libmms_dep.found())
+input_features.set('ENABLE_MMS', libmms_dep.found())
 if libmms_dep.found()
   input_plugins_sources += 'MmsInputPlugin.cxx'
 endif
@@ -47,7 +51,7 @@ else
     error('Qobuz requires CURL, libyajl and libgcrypt')
   endif
 endif
-conf.set('ENABLE_QOBUZ', enable_qobuz)
+input_features.set('ENABLE_QOBUZ', enable_qobuz)
 if enable_qobuz
   input_plugins_sources += [
     'QobuzClient.cxx',
@@ -68,7 +72,7 @@ else
     error('Tidal requires CURL and libyajl')
   endif
 endif
-conf.set('ENABLE_TIDAL', enable_tidal)
+input_features.set('ENABLE_TIDAL', enable_tidal)
 if enable_tidal
   input_plugins_sources += [
     'TidalErrorParser.cxx',

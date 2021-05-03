@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -87,6 +87,7 @@ static constexpr struct command commands[] = {
 	{ "addid", PERMISSION_ADD, 1, 2, handle_addid },
 	{ "addtagid", PERMISSION_ADD, 3, 3, handle_addtagid },
 	{ "albumart", PERMISSION_READ, 2, 2, handle_album_art },
+	{ "binarylimit", PERMISSION_NONE, 1, 1, handle_binary_limit },
 	{ "channels", PERMISSION_READ, 0, 0, handle_channels },
 	{ "clear", PERMISSION_CONTROL, 0, 0, handle_clear },
 	{ "clearerror", PERMISSION_CONTROL, 0, 0, handle_clearerror },
@@ -113,6 +114,7 @@ static constexpr struct command commands[] = {
 #ifdef ENABLE_CHROMAPRINT
 	{ "getfingerprint", PERMISSION_READ, 1, 1, handle_getfingerprint },
 #endif
+	{ "getvol", PERMISSION_READ, 0, 0, handle_getvol },
 	{ "idle", PERMISSION_READ, 0, -1, handle_idle },
 	{ "kill", PERMISSION_ADMIN, -1, -1, handle_kill },
 #ifdef ENABLE_DATABASE
@@ -201,7 +203,7 @@ static constexpr struct command commands[] = {
 	{ "subscribe", PERMISSION_READ, 1, 1, handle_subscribe },
 	{ "swap", PERMISSION_CONTROL, 2, 2, handle_swap },
 	{ "swapid", PERMISSION_CONTROL, 2, 2, handle_swapid },
-	{ "tagtypes", PERMISSION_READ, 0, -1, handle_tagtypes },
+	{ "tagtypes", PERMISSION_NONE, 0, -1, handle_tagtypes },
 	{ "toggleoutput", PERMISSION_ADMIN, 1, 1, handle_toggleoutput },
 #ifdef ENABLE_DATABASE
 	{ "unmount", PERMISSION_ADMIN, 1, 1, handle_unmount },

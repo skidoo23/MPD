@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -39,7 +39,7 @@
 #include "pcm/AudioFormat.hxx"
 #include "Log.hxx"
 #include "event/MultiSocketMonitor.hxx"
-#include "event/DeferEvent.hxx"
+#include "event/InjectEvent.hxx"
 
 #include <alsa/asoundlib.h>
 
@@ -80,7 +80,7 @@ class AlsaInputStream final
 
 	AlsaNonBlockPcm non_block;
 
-	DeferEvent defer_invalidate_sockets;
+	InjectEvent defer_invalidate_sockets;
 
 public:
 
@@ -127,7 +127,7 @@ private:
 	int Recover(int err);
 
 	/* virtual methods from class MultiSocketMonitor */
-	std::chrono::steady_clock::duration PrepareSockets() noexcept override;
+	Event::Duration PrepareSockets() noexcept override;
 	void DispatchSockets() noexcept override;
 };
 
@@ -219,12 +219,12 @@ AlsaInputStream::Create(EventLoop &event_loop, const char *uri,
 	return std::make_unique<AlsaInputStream>(event_loop, mutex, spec);
 }
 
-std::chrono::steady_clock::duration
+Event::Duration
 AlsaInputStream::PrepareSockets() noexcept
 {
 	if (IsPaused()) {
 		ClearSocketList();
-		return std::chrono::steady_clock::duration(-1);
+		return Event::Duration(-1);
 	}
 
 	return non_block.PrepareSockets(*this, capture_handle);

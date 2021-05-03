@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,9 @@
 #else
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
+/* on macOS, OpenAL is deprecated, but since the user asked to enable
+   this plugin, let's ignore the compiler warnings */
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 
 class OpenALOutput final : AudioOutput {

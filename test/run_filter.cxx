@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,7 @@
 #include "pcm/Volume.hxx"
 #include "mixer/MixerControl.hxx"
 #include "system/Error.hxx"
-#include "system/FileDescriptor.hxx"
+#include "io/FileDescriptor.hxx"
 #include "util/ConstBuffer.hxx"
 #include "util/StringBuffer.hxx"
 #include "util/RuntimeError.hxx"
@@ -68,34 +68,6 @@ ReadOrThrow(FileDescriptor fd, void *buffer, size_t size)
 		throw MakeErrno("Read failed");
 
 	return nbytes;
-}
-
-static size_t
-WriteOrThrow(FileDescriptor fd, const void *buffer, size_t size)
-{
-	auto nbytes = fd.Write(buffer, size);
-	if (nbytes < 0)
-		throw MakeErrno("Write failed");
-
-	return nbytes;
-}
-
-static void
-FullWrite(FileDescriptor fd, ConstBuffer<uint8_t> src)
-{
-	while (!src.empty()) {
-		size_t nbytes = WriteOrThrow(fd, src.data, src.size);
-		if (nbytes == 0)
-			throw std::runtime_error("Write failed");
-
-		src.skip_front(nbytes);
-	}
-}
-
-static void
-FullWrite(FileDescriptor fd, ConstBuffer<void> src)
-{
-	FullWrite(fd, ConstBuffer<uint8_t>::FromVoid(src));
 }
 
 static size_t
@@ -166,14 +138,14 @@ try {
 			break;
 
 		auto dest = filter->FilterPCM({(const void *)buffer, (size_t)nbytes});
-		FullWrite(output_fd, dest);
+		output_fd.FullWrite(dest.data, dest.size);
 	}
 
 	while (true) {
 		auto dest = filter->Flush();
 		if (dest.IsNull())
 			break;
-		FullWrite(output_fd, dest);
+		output_fd.FullWrite(dest.data, dest.size);
 	}
 
 	/* cleanup and exit */

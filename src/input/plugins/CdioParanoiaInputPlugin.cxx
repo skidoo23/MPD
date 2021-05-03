@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -133,7 +133,7 @@ parse_cdio_uri(const char *src)
 		return dest;
 	}
 
-	const char *slash = strrchr(src, '/');
+	const char *slash = std::strrchr(src, '/');
 	if (slash == nullptr) {
 		/* play the whole CD in the specified drive */
 		CopyTruncateString(dest.device, src, sizeof(dest.device));

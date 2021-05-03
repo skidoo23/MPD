@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2020 The Music Player Daemon Project
+ * Copyright 2003-2021 The Music Player Daemon Project
  * http://www.musicpd.org
  *
  * This program is free software; you can redistribute it and/or modify
@@ -86,8 +86,7 @@ song_save(BufferedOutputStream &os, const DetachedSong &song)
 
 DetachedSong
 song_load(TextFile &file, const char *uri,
-	  std::string *target_r,
-	  AudioFormat *audio_format_r)
+	  std::string *target_r)
 {
 	DetachedSong song(uri);
 
@@ -96,7 +95,7 @@ song_load(TextFile &file, const char *uri,
 	char *line;
 	while ((line = file.ReadLine()) != nullptr &&
 	       !StringIsEqual(line, SONG_END)) {
-		char *colon = strchr(line, ':');
+		char *colon = std::strchr(line, ':');
 		if (colon == nullptr || colon == line) {
 			throw FormatRuntimeError("unknown line in db: %s", line);
 		}
@@ -113,13 +112,11 @@ song_load(TextFile &file, const char *uri,
 			if (target_r != nullptr)
 				*target_r = value;
 		} else if (StringIsEqual(line, "Format")) {
-			if (audio_format_r != nullptr) {
-				try {
-					*audio_format_r =
-						ParseAudioFormat(value, false);
-				} catch (...) {
-					/* ignore parser errors */
-				}
+			try {
+				song.SetAudioFormat(ParseAudioFormat(value,
+								     false));
+			} catch (...) {
+				/* ignore parser errors */
 			}
 		} else if (StringIsEqual(line, "Playlist")) {
 			tag.SetHasPlaylist(StringIsEqual(value, "yes"));
